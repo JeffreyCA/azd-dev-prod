@@ -165,8 +165,8 @@ def control_health():
     action = request.form.get('action')
     
     if action == 'make_unhealthy':
-        success = _set_status_blob(60)  # Unhealthy for 60 seconds
-        flash('Health set to unhealthy for 60 seconds' if success else 'Failed to update health', 
+        success = _set_status_blob(120)  # Unhealthy for 120 seconds
+        flash('Health set to unhealthy for 120 seconds' if success else 'Failed to update health',
               'success' if success else 'error')
     elif action == 'make_healthy':
         success = _set_status_blob(0)  # Healthy

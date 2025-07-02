@@ -151,7 +151,7 @@
             <p>Control the health endpoint for testing load balancer and Front Door behavior:</p>
             <form action="{{ url_for('control_health') }}" method="post" style="display: inline;">
                 <input type="hidden" name="action" value="make_unhealthy">
-                <button type="submit" class="btn-danger">Make Unhealthy (60s)</button>
+                <button type="submit" class="btn-danger">Make Unhealthy (120s)</button>
             </form>
             <form action="{{ url_for('control_health') }}" method="post" style="display: inline;">
                 <input type="hidden" name="action" value="make_healthy">

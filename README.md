@@ -142,15 +142,15 @@ The application includes a **Health Status Control** section on the main page fo
 
 **Features:**
 - **🟢 Make Healthy** button - Sets status to healthy immediately
-- **🔴 Make Unhealthy (60s)** button - Temporarily sets status to unhealthy for 60 seconds
-- **Auto-Recovery** - Status automatically returns to healthy after 60 seconds
+- **🔴 Make Unhealthy (120s)** button - Temporarily sets status to unhealthy for 120 seconds
+- **Auto-Recovery** - Status automatically returns to healthy after 120 seconds
 - **Real-time Status Display** - Shows current health status on the page
 
 **How to Test Failover:**
 1. Visit your application's main page
-2. Click **"Make Unhealthy (60s)"** button
+2. Click **"Make Unhealthy (120s)"** button
 3. Test your Front Door endpoint - traffic should route to the secondary region
-4. Wait 60 seconds for auto-recovery, or click **"Make Healthy"** to restore immediately
+4. Wait 120 seconds for auto-recovery, or click **"Make Healthy"** to restore immediately
 
 This allows you to easily test multi-region failover behavior without stopping services.
 
