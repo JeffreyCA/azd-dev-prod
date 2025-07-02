@@ -48,6 +48,9 @@ param storageAccountBlobEndpoint string
 @description('Front Door ID for access restrictions (optional for non-prod environments)')
 param frontDoorId string = ''
 
+@description('Region suffix for naming (primary/secondary)')
+param regionSuffix string
+
 // App Service Plan for hosting the application
 module appServicePlan 'br/public:avm/res/web/serverfarm:0.4.1' = {
   name: 'appServicePlanDeployment-${resourceToken}'
@@ -67,7 +70,7 @@ module appService 'br/public:avm/res/web/site:0.15.1' = {
   params: {
     name: '${abbrs.webSitesAppService}app-${resourceToken}'
     location: location
-    tags: union(tags, { 'azd-service-name': 'app' })
+    tags: union(tags, { 'azd-service-name': 'app-${regionSuffix}' })
     kind: 'app,linux'
     serverFarmResourceId: appServicePlan.outputs.resourceId
     managedIdentities:{

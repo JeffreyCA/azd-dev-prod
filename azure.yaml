@@ -20,11 +20,16 @@ infra:
 
 # Application services
 services:
-  app:
+  # Must match 'azd-service-name' tag in Bicep: app-{regionSuffix}
+  app-primary:
     project: .
     host: appservice
     language: python
-    
+  app-secondary:
+    project: .
+    host: appservice
+    language: python
+
 # Environment-specific configurations
 environments:
   # Development environment - simplified multi-region setup

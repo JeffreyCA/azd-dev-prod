@@ -103,7 +103,7 @@ module regionalApp './app.bicep' = {
   name: 'regional-app-${regionSuffix}'
   params: {
     location: location
-    tags: union(tags, { 'azd-service-name': 'app' })
+    tags: tags
     abbrs: abbrs
     resourceToken: '${regionSuffix}${resourceToken}'
     envType: envType
@@ -114,6 +114,7 @@ module regionalApp './app.bicep' = {
     storageAccountName: regionalShared.outputs.storageAccountName
     storageAccountBlobEndpoint: regionalShared.outputs.storageAccountBlobEndpoint
     frontDoorId: frontDoorId
+    regionSuffix: regionSuffix
   }
 }
 
