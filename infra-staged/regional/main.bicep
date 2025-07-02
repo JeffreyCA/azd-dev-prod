@@ -28,14 +28,17 @@ param resourceToken string
 @description('Region suffix for naming (primary/secondary)')
 param regionSuffix string
 
-@description('Whether this is the primary region')
-param isPrimary bool = true
+@description('Private DNS Zone ID for storage account (from global infrastructure)')
+param privateDnsZoneStorageId string
+
+@description('Front Door ID for access restrictions (from global infrastructure)')
+param frontDoorId string = ''
 
 // Note: Resource groups are created at the subscription level
 // This regional deployment module assumes it's deployed within an existing resource group
 
 // Deploy network infrastructure (only for production)
-module regionalNetwork '../infra-staged/network.bicep' = if (envType == 'prod') {
+module regionalNetwork './network.bicep' = if (envType == 'prod') {
   name: 'regional-network-${regionSuffix}'
   params: {
     location: location
@@ -45,14 +48,28 @@ module regionalNetwork '../infra-staged/network.bicep' = if (envType == 'prod') 
   }
 }
 
+// Create VNet link to global private DNS zone (only for production)
+resource privateDnsZoneStorageVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = if (envType == 'prod') {
+  name: '${split(privateDnsZoneStorageId, '/')[8]}/${regionSuffix}-storage-vnet-link'
+  location: 'global'
+  properties: {
+    virtualNetwork: {
+      id: regionalNetwork.outputs.virtualNetworkId
+    }
+    registrationEnabled: false
+  }
+  tags: tags
+}
+
 // Regional monitoring
-module regionalMonitoring '../infra-staged/monitoring.bicep' = {
+module regionalMonitoring './monitoring.bicep' = {
   name: 'regional-monitoring-${regionSuffix}'
   params: {
     location: location
     tags: tags
     abbrs: abbrs
     resourceToken: '${regionSuffix}${resourceToken}'
+    envType: envType
   }
 }
 
@@ -67,7 +84,7 @@ module regionalAppIdentity 'br/public:avm/res/managed-identity/user-assigned-ide
 }
 
 // Regional shared services (storage)
-module regionalShared '../infra-staged/shared.bicep' = {
+module regionalShared './storage.bicep' = {
   name: 'regional-shared-${regionSuffix}'
   params: {
     location: location
@@ -76,13 +93,13 @@ module regionalShared '../infra-staged/shared.bicep' = {
     resourceToken: '${regionSuffix}${resourceToken}'
     envType: envType
     privateEndpointSubnetId: envType == 'prod' ? regionalNetwork.outputs.privateEndpointSubnetId : ''
-    privateDnsZoneStorageId: envType == 'prod' ? regionalNetwork.outputs.privateDnsZoneStorageId : ''
+    privateDnsZoneStorageId: privateDnsZoneStorageId
     appIdentityPrincipalId: regionalAppIdentity.outputs.principalId
   }
 }
 
 // Regional application hosting
-module regionalApp '../infra-staged/app.bicep' = {
+module regionalApp './app.bicep' = {
   name: 'regional-app-${regionSuffix}'
   params: {
     location: location
@@ -96,99 +113,11 @@ module regionalApp '../infra-staged/app.bicep' = {
     appIdentityClientId: regionalAppIdentity.outputs.clientId
     storageAccountName: regionalShared.outputs.storageAccountName
     storageAccountBlobEndpoint: regionalShared.outputs.storageAccountBlobEndpoint
+    frontDoorId: frontDoorId
   }
 }
 
-// Regional autoscaling rules
-resource autoScaleSettings 'Microsoft.Insights/autoscalesettings@2022-10-01' = {
-  name: '${abbrs.insightsAutoscalesettings}${regionSuffix}-${resourceToken}'
-  location: location
-  tags: tags
-  properties: {
-    enabled: true
-    targetResourceUri: regionalApp.outputs.appServicePlanResourceId
-    profiles: [
-      {
-        name: 'Default'
-        capacity: {
-          minimum: '1'
-          maximum: isPrimary ? '10' : '5' // Primary region gets higher capacity
-          default: isPrimary ? '2' : '1'
-        }
-        rules: [
-          {
-            metricTrigger: {
-              metricName: 'CpuPercentage'
-              metricResourceUri: regionalApp.outputs.appServicePlanResourceId
-              timeGrain: 'PT1M'
-              statistic: 'Average'
-              timeWindow: 'PT5M'
-              timeAggregation: 'Average'
-              operator: 'GreaterThan'
-              threshold: 70
-            }
-            scaleAction: {
-              direction: 'Increase'
-              type: 'ChangeCount'
-              value: '1'
-              cooldown: 'PT5M'
-            }
-          }
-          {
-            metricTrigger: {
-              metricName: 'CpuPercentage'
-              metricResourceUri: regionalApp.outputs.appServicePlanResourceId
-              timeGrain: 'PT1M'
-              statistic: 'Average'
-              timeWindow: 'PT5M'
-              timeAggregation: 'Average'
-              operator: 'LessThan'
-              threshold: 30
-            }
-            scaleAction: {
-              direction: 'Decrease'
-              type: 'ChangeCount'
-              value: '1'
-              cooldown: 'PT5M'
-            }
-          }
-        ]
-      }
-    ]
-    notifications: []
-  }
-}
 
-// Regional alert rules for health monitoring
-resource healthAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
-  name: '${regionSuffix}-app-health-alert-${resourceToken}'
-  location: 'global'
-  tags: tags
-  properties: {
-    description: 'Alert when app service is unhealthy in ${regionSuffix} region'
-    severity: 1
-    enabled: true
-    scopes: [
-      regionalApp.outputs.appServiceResourceId
-    ]
-    evaluationFrequency: 'PT1M'
-    windowSize: 'PT5M'
-    criteria: {
-      'odata.type': 'Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria'
-      allOf: [
-        {
-          name: 'HealthCheckStatus'
-          metricName: 'HealthCheckStatus'
-          operator: 'LessThan'
-          threshold: 1
-          timeAggregation: 'Average'
-          criterionType: 'StaticThresholdCriterion'
-        }
-      ]
-    }
-    // Note: Action groups would need to be created separately or referenced from monitoring module
-  }
-}
 
 // Outputs
 output appServiceHostName string = regionalApp.outputs.appServiceDefaultHostname

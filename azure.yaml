@@ -1,3 +1,5 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
 # Multi-Region Scale Unit Configuration
 # This configuration deploys a highly available, multi-region scale unit
 # with Azure Front Door, regional App Services, and geo-replicated storage
@@ -8,7 +10,7 @@ metadata:
 
 # Infrastructure configuration for multi-region deployment
 infra:
-  module: main-scale-unit
+  module: main
   path: infra-staged
   location: "${AZURE_LOCATION}"
   parameters:

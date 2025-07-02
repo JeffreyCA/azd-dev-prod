@@ -41,7 +41,6 @@ param appIdentityPrincipalId string
 // Storage Account with environment-specific access configuration
 var storageAccountName = '${abbrs.storageStorageAccounts}${resourceToken}'
 module storageAccount 'br/public:avm/res/storage/storage-account:0.17.2' = {
-  name: 'storageAccount'
   params: {
     name: storageAccountName
     allowSharedKeyAccess: false
@@ -99,7 +98,7 @@ resource storagePrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-05-01' 
 }
 
 // DNS Zone Group for private endpoint (Production only)
-resource storagePrivateEndpointDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2024-05-01' = if (envType == 'prod') {
+resource storagePrivateEndpointDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2024-05-01' = if (envType == 'prod' && !empty(privateDnsZoneStorageId)) {
   name: 'storage-dns-zone-group'
   parent: storagePrivateEndpoint
   properties: {

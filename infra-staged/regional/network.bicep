@@ -1,13 +1,14 @@
 // Network infrastructure module for secure VNet integration and private networking
 // This module creates:
 // 1. Virtual Network with dedicated subnets for App Service integration and private endpoints
-// 2. Private DNS Zone for blob storage resolution within the VNet
-// 3. VNet link to enable DNS resolution for private endpoints
+//
+// Note: Private DNS zones are now managed globally in the global-foundation module
+// VNet links to global DNS zones are created in the vnet-link module
 //
 // Security Benefits:
 // - Isolates network traffic to private network
 // - Enables secure communication between services
-// - Provides DNS resolution for private endpoints
+// - Provides network foundation for private endpoints
 
 @description('The location used for all deployed resources')
 param location string
@@ -59,26 +60,6 @@ resource virtualNetwork 'Microsoft.Network/virtualNetworks@2024-05-01' = {
   }
 }
 
-// Private DNS Zone for storage account
-resource privateDnsZoneStorage 'Microsoft.Network/privateDnsZones@2024-06-01' = {
-  name: 'privatelink.blob.${environment().suffixes.storage}'
-  location: 'global'
-  tags: tags
-}
-
-// VNet link for private DNS zone
-resource privateDnsZoneStorageVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = {
-  name: 'storage-vnet-link'
-  parent: privateDnsZoneStorage
-  location: 'global'
-  properties: {
-    virtualNetwork: {
-      id: virtualNetwork.id
-    }
-    registrationEnabled: false
-  }
-}
-
 // Outputs for use by other modules
 @description('Virtual Network resource ID')
 output virtualNetworkId string = virtualNetwork.id
@@ -88,9 +69,6 @@ output vnetIntegrationSubnetId string = '${virtualNetwork.id}/subnets/vnet-integ
 
 @description('Private endpoint subnet ID')
 output privateEndpointSubnetId string = '${virtualNetwork.id}/subnets/private-endpoint-subnet'
-
-@description('Private DNS Zone ID for storage account')
-output privateDnsZoneStorageId string = privateDnsZoneStorage.id
 
 @description('Virtual Network name')
 output virtualNetworkName string = virtualNetwork.name

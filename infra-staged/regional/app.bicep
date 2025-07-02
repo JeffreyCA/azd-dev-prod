@@ -45,22 +45,25 @@ param storageAccountName string
 @description('Storage account blob endpoint for application configuration')
 param storageAccountBlobEndpoint string
 
+@description('Front Door ID for access restrictions (optional for non-prod environments)')
+param frontDoorId string = ''
+
 // App Service Plan for hosting the application
 module appServicePlan 'br/public:avm/res/web/serverfarm:0.4.1' = {
-  name: 'appServicePlanDeployment'
+  name: 'appServicePlanDeployment-${resourceToken}'
   params: {
     name: '${abbrs.webServerFarms}${resourceToken}'
     location: location
     tags: tags
     kind: 'linux'
     skuCapacity: 1
-    skuName: 'F1'
+    skuName: 'S1'
   }
 }
 
 // App Service with secure configuration
 module appService 'br/public:avm/res/web/site:0.15.1' = {
-  name: 'appServiceDeployment-app'
+  name: 'appServiceDeployment-${resourceToken}'
   params: {
     name: '${abbrs.webSitesAppService}app-${resourceToken}'
     location: location
@@ -80,6 +83,21 @@ module appService 'br/public:avm/res/web/site:0.15.1' = {
           'https://ms.portal.azure.com'
         ]
       }
+      ipSecurityRestrictions: !empty(frontDoorId) ? [
+        {
+          tag: 'ServiceTag'
+          ipAddress: 'AzureFrontDoor.Backend'
+          action: 'Allow'
+          priority: 100
+          headers: {
+            'x-azure-fdid': [
+              frontDoorId
+            ]
+          }
+          name: 'Allow traffic from Front Door'
+        }
+      ] : []
+      scmIpSecurityRestrictionsDefaultAction: !empty(frontDoorId) ? 'Deny' : 'Allow'
     }
     clientAffinityEnabled: false
     httpsOnly: true
