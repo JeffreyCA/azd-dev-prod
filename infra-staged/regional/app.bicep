@@ -100,7 +100,7 @@ module appService 'br/public:avm/res/web/site:0.15.1' = {
           name: 'Allow traffic from Front Door'
         }
       ] : []
-      scmIpSecurityRestrictionsDefaultAction: !empty(frontDoorId) ? 'Deny' : 'Allow'
+      scmIpSecurityRestrictionsDefaultAction: 'Allow' // Allows deployment
     }
     clientAffinityEnabled: false
     httpsOnly: true
