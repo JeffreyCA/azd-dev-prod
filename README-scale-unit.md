@@ -1,8 +1,35 @@
 # 🌍 Multi-Region Scale Unit Architecture
 
-This project implements a highly available, multi-region Flask application with automatic failover and global load balancing using Azure services.
+This project implements a highly available, multi-region Flask application with automatic failover and global load balancing using Azure services. The infrastructure is organized into **global** and **regional** modules for better maintainability and deployment efficiency.
 
 ## 🏗️ Architecture Overview
+
+### Infrastructure Organization
+
+The Bicep infrastructure has been reorganized into a modular architecture:
+
+```
+infra-staged/
+├── main.bicep                    # Main orchestration (subscription scope)
+├── main.parameters.json          # Environment parameters
+├── global/                       # Global infrastructure components
+│   ├── main.bicep               # Global resources (Front Door, DNS, shared storage)
+│   └── front-door-config.bicep  # Front Door endpoint configuration
+└── regional/                     # Regional infrastructure components
+    ├── main.bicep               # Regional orchestration
+    ├── app.bicep                # App Service and hosting
+    ├── storage.bicep            # Regional storage
+    ├── network.bicep            # VNet and networking
+    ├── monitoring.bicep         # Regional monitoring
+    └── modules/                 # Additional modules
+```
+
+### Deployment Model
+
+- **Single Resource Group**: All resources are deployed to one resource group for simplified management
+- **Global Components**: Front Door, DNS zones, and shared storage deployed once
+- **Regional Components**: App Services, regional storage, and monitoring deployed per region
+- **Service Configuration**: Two azd services (`app-primary` and `app-secondary`) for automatic deployment
 
 ### Production Environment (`envType = 'prod'`)
 ```
@@ -68,34 +95,73 @@ This project implements a highly available, multi-region Flask application with 
 - [Azure CLI](https://docs.microsoft.com/cli/azure/install-azure-cli)
 - Azure subscription with appropriate permissions
 
-### 1. Deploy Development Environment (Simplified)
-```powershell
-# Run the deployment script
-.\deploy-scale-unit.ps1 -EnvironmentType dev -EnvironmentName "my-dev-scale-unit"
-```
+### Quick Deployment
 
-### 2. Deploy Production Environment (Full Security)
-```powershell
-# Deploy with full VNet integration and private endpoints
-.\deploy-scale-unit.ps1 -EnvironmentType prod -EnvironmentName "my-prod-scale-unit"
-```
-
-### 3. Manual Deployment (Advanced)
 ```bash
-# Copy scale unit configuration
-cp azure.scale-unit.yaml azure.yaml
+# Clone and navigate to the project
+cd azd-dev-prod-appservice-storage
 
+# Deploy using azd
+azd up
+
+# Or deploy specific environment
+azd env set AZURE_ENV_TYPE prod
+azd up
+```
+
+### Service Configuration
+
+The project now uses a dual-service model in `azure.yaml`:
+
+```yaml
+services:
+  app-primary:     # Deployed to primary region
+    project: .
+    host: appservice
+    language: python
+  app-secondary:   # Deployed to secondary region  
+    project: .
+    host: appservice
+    language: python
+```
+
+### Alternative Deployment Methods
+```bash
 # Set environment variables
 export AZURE_ENV_NAME="my-scale-unit"
 export AZURE_ENV_TYPE="dev"
-export AZURE_PRIMARY_LOCATION="East US"
-export AZURE_SECONDARY_LOCATION="West US 2"
+export AZURE_LOCATION="eastus2"
+export AZURE_SECONDARY_LOCATION="southcentralus"
 
 # Deploy
 azd up
 ```
 
 ## 🔧 Configuration Options
+
+### Environment Variables
+
+| Variable | Description | Default | Example |
+|----------|-------------|---------|---------|
+| `AZURE_ENV_NAME` | Environment name for resource naming | - | `my-scale-unit` |
+| `AZURE_ENV_TYPE` | Environment type (dev/test/prod) | `dev` | `prod` |
+| `AZURE_LOCATION` | Primary region | `eastus` | `eastus2` |
+| `AZURE_SECONDARY_LOCATION` | Secondary region | `westus2` | `southcentralus` |
+
+### azd Configuration
+
+Update environment values:
+```bash
+# Set environment type
+azd env set AZURE_ENV_TYPE prod
+
+# Set regions
+azd env set AZURE_LOCATION eastus2
+azd env set AZURE_SECONDARY_LOCATION southcentralus
+
+# Deploy with new configuration
+azd up
+```
 
 ### Environment Types
 
@@ -107,29 +173,66 @@ azd up
 
 ### Regions
 
-Default regions are optimized for US workloads:
-- **Primary**: East US
-- **Secondary**: West US 2
+Default regions (optimized for reliability and quota availability):
+- **Primary**: East US 2 (`eastus2`)
+- **Secondary**: South Central US (`southcentralus`)
+
+**Recommended Region Pairs:**
+- **US**: `eastus2` + `southcentralus` or `centralus` + `westcentralus`  
+- **Europe**: `northeurope` + `westeurope`
+- **Asia**: `eastasia` + `southeastasia`
 
 To use different regions:
-```powershell
-.\deploy-scale-unit.ps1 -PrimaryLocation "North Europe" -SecondaryLocation "West Europe"
+```bash
+azd env set AZURE_LOCATION northeurope
+azd env set AZURE_SECONDARY_LOCATION westeurope
+azd up
 ```
 
 ## 📊 Monitoring & Health Checks
 
 ### Built-in Health Endpoints
 
-- **`/health`** - Health check for Front Door probes
+The Flask application includes health endpoints for Front Door integration:
+
+- **`/health`** - Health check endpoint for Front Door health probes
+  ```json
+  {
+    "status": "healthy",
+    "region": "primary",
+    "timestamp": "2025-07-02T10:30:00Z"
+  }
+  ```
+
 - **`/info`** - Application information and diagnostics
+  ```json
+  {
+    "app": "Flask Multi-Region Demo",
+    "version": "1.0.0",
+    "region": "primary",
+    "storage_account": "st...",
+    "environment": "dev"
+  }
+  ```
 
-### Monitoring Components
+### Monitoring Architecture
 
-1. **Azure Front Door** - Global load balancing and CDN
-2. **Application Insights** - Application performance monitoring
-3. **Log Analytics** - Centralized logging
-4. **Metric Alerts** - Automated alerting for health issues
-5. **Auto-scaling** - Automatic scaling based on demand
+**Global Components:**
+- **Azure Front Door** - Global load balancing, CDN, and health probing
+- **Global Application Insights** - Aggregated telemetry and metrics
+
+**Regional Components:**
+- **Regional Application Insights** - Region-specific performance monitoring  
+- **Log Analytics Workspace** - Centralized logging per region
+- **Portal Dashboards** - Regional monitoring dashboards
+- **Metric Alerts** - Health and performance alerting
+
+### Infrastructure Organization
+
+The monitoring is organized as follows:
+- **Global Monitoring**: Front Door analytics and global application insights
+- **Regional Monitoring**: Per-region App Service metrics, logs, and alerts
+- **Cross-Region Correlation**: Shared resource tokens enable correlation across regions
 
 ### Key Metrics to Monitor
 
@@ -204,60 +307,121 @@ curl https://<secondary-app-service>/health
 
 ## 📋 Management Commands
 
-### Deployment Management
+### Primary Deployment Commands
 ```bash
-# Deploy infrastructure and application
+# Full deployment (infrastructure + application)
 azd up
 
-# Deploy only application code
+# Deploy only application code (faster for code changes)
 azd deploy
 
-# Preview changes
+# Deploy specific service
+azd deploy app-primary
+
+# Preview infrastructure changes
 azd provision --preview
 
-# View logs
+# View real-time logs from both regions
 azd logs
 
-# Monitor application
+# Monitor application performance
 azd monitor
-
-# Clean up all resources
-azd down
 ```
 
 ### Environment Management
 ```bash
-# List environments
+# List all environments
 azd env list
 
-# Switch environments
+# Switch to different environment
 azd env select <environment-name>
 
-# View environment values
+# View current environment values
 azd env get-values
 
-# Set environment values
-azd env set KEY=value
+# Set specific environment values
+azd env set AZURE_ENV_TYPE=prod
+azd env set AZURE_LOCATION=northeurope
+
+# Create new environment
+azd env new <environment-name>
 ```
+
+### Infrastructure Management  
+```bash
+# View deployment outputs
+azd show --output table
+
+# Get Front Door endpoint
+azd env get-values | grep FRONT_DOOR
+
+# Clean up all resources
+azd down --force --purge
+```
+
+## 🛠️ Infrastructure Details
+
+### Bicep Module Organization
+
+The infrastructure is modular and organized for maintainability:
+
+**Main Orchestration (`main.bicep`):**
+- Subscription-scoped deployment
+- Single resource group creation
+- Orchestrates global and regional deployments
+- Parameter management and output aggregation
+
+**Global Infrastructure (`global/`):**
+- **`main.bicep`**: Front Door profile, DNS zones, global storage
+- **`front-door-config.bicep`**: Endpoint and origin configuration (post-deployment)
+
+**Regional Infrastructure (`regional/`):**
+- **`main.bicep`**: Regional orchestration and resource coordination
+- **`app.bicep`**: App Service Plan and App Service configuration
+- **`storage.bicep`**: Regional storage accounts and containers
+- **`network.bicep`**: VNet, subnets, and private endpoints (prod only)
+- **`monitoring.bicep`**: Application Insights, Log Analytics, and dashboards
+
+### Deployment Flow
+
+1. **Global Resources**: DNS zones, Front Door profile, shared storage
+2. **Regional Resources**: App Services, regional storage, monitoring (parallel deployment)
+3. **Front Door Configuration**: Endpoints and origins (after App Services are ready)
+4. **Application Deployment**: Code deployment to both regions via azd services
+
+### Service Tags and Naming
+
+The infrastructure uses consistent tagging for azd integration:
+- App Services tagged with `azd-service-name`: `app-primary` and `app-secondary`
+- Resource naming follows Azure abbreviation standards
+- Unique resource tokens ensure global name uniqueness
 
 ## 🛠️ Troubleshooting
 
-### Common Issues
+### Common Deployment Issues
 
-1. **Front Door Health Probe Failures**
-   - Check `/health` endpoint is accessible
-   - Verify App Service is running
-   - Check storage connectivity
+1. **Quota Exceeded Errors**
+   ```
+   Error: Quota exceeded for App Service Plan
+   ```
+   **Solution**: Try different regions or F1 SKU
+   ```bash
+   azd env set AZURE_LOCATION eastus2
+   azd env set AZURE_SECONDARY_LOCATION southcentralus
+   azd up
+   ```
 
-2. **Regional Failover Not Working**
-   - Verify health probe configuration
-   - Check Front Door origin priorities
-   - Monitor Front Door metrics
+2. **Service Tag Mismatch**
+   ```
+   Error: Unable to find service for deployment
+   ```
+   **Solution**: Ensure App Service tags match azure.yaml services
+   - App Services must be tagged: `app-primary` and `app-secondary`
 
-3. **Storage Access Issues**
-   - Check managed identity permissions
-   - Verify storage account network rules
-   - Test storage connectivity from App Service
+3. **Front Door Configuration Issues**
+   - Check health endpoints are accessible: `/health`
+   - Verify App Service hostnames are correct
+   - Monitor Front Door health probe status
 
 ### Diagnostic Commands
 
@@ -265,35 +429,83 @@ azd env set KEY=value
 # Check deployment status
 azd show
 
-# View detailed logs
-azd logs --follow
+# View service-specific logs  
+azd logs app-primary
+azd logs app-secondary
 
 # Check resource health
-az resource list --resource-group <rg-name> --query "[].{Name:name,Type:type,Location:location}"
+az resource list --resource-group rg-<env-name> --output table
 
-# Test storage connectivity
-az storage blob list --account-name <storage-name> --container-name files --auth-mode login
+# Test health endpoints
+curl https://<front-door-endpoint>/health
+curl https://<app-service-hostname>/health
+```
+
+### Regional Failover Testing
+
+```bash
+# Stop primary region App Service
+az webapp stop --name <primary-app-name> --resource-group rg-<env-name>
+
+# Monitor Front Door routing (should redirect to secondary)
+curl https://<front-door-endpoint>/info
+
+# Restart primary region
+az webapp start --name <primary-app-name> --resource-group rg-<env-name>
 ```
 
 ## 🔮 Advanced Scenarios
 
-### Adding More Regions
+### Extending the Architecture
 
-1. Modify `main-scale-unit.bicep` to include additional regions
-2. Update Front Door origin groups
-3. Add regional resource groups and deployments
+**Adding More Regions:**
+1. Modify `main.bicep` to add additional regional deployments
+2. Update `azure.yaml` to include new service configurations
+3. Configure Front Door origin groups for additional regions
 
-### Custom Domain & SSL
+**Custom Domains & SSL:**
+1. Configure custom domain in Front Door endpoint
+2. Upload SSL certificates or use managed certificates  
+3. Update DNS CNAME records to point to Front Door
 
-1. Configure custom domain in Front Door
-2. Add SSL certificate management
-3. Update DNS records
+**Database Integration:**
+1. Add Azure SQL Database with geo-replication to `global/main.bicep`
+2. Configure connection strings per region in `regional/app.bicep`
+3. Implement database failover logic in application code
 
-### Database Integration
+### Production Hardening
 
-1. Add Azure SQL Database with geo-replication
-2. Configure connection strings per region
-3. Implement database failover logic
+**Security Enhancements:**
+- Enable WAF (Web Application Firewall) on Front Door
+- Configure App Service IP restrictions to Front Door only
+- Add Azure Key Vault for secrets management
+- Enable Azure AD authentication
+
+**Performance Optimization:**
+- Configure Front Door caching rules
+- Enable compression and optimization
+- Add Application Gateway for advanced load balancing
+- Implement Redis cache for session state
+
+### Multi-Environment Strategy
+
+**Development Workflow:**
+```bash
+# Development environment
+azd env new dev-feature-x
+azd env set AZURE_ENV_TYPE dev
+azd up
+
+# Staging environment  
+azd env new staging
+azd env set AZURE_ENV_TYPE test
+azd up
+
+# Production deployment
+azd env new production
+azd env set AZURE_ENV_TYPE prod
+azd up
+```
 
 ## 📚 Additional Resources
 
