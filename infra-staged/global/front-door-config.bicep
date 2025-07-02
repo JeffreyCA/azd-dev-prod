@@ -35,15 +35,15 @@ resource frontDoorOriginGroup 'Microsoft.Cdn/profiles/originGroups@2024-02-01' =
   name: 'app-services'
   properties: {
     loadBalancingSettings: {
-      sampleSize: 4
-      successfulSamplesRequired: 3
+      sampleSize: 2 // Originally 4
+      successfulSamplesRequired: 2 // Originally 3
       additionalLatencyInMilliseconds: 50
     }
     healthProbeSettings: {
       probePath: '/health'
       probeRequestType: 'GET'
       probeProtocol: 'Https'
-      probeIntervalInSeconds: 30
+      probeIntervalInSeconds: 15 // Originally 30
     }
     sessionAffinityState: 'Disabled'
   }
