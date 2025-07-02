@@ -48,34 +48,18 @@ environments:
 
 # Hooks for deployment lifecycle
 hooks:
-  predeploy:
-    posix:
-      shell: sh
-      run: |
-        echo "Preparing multi-region deployment..."
-        echo "Primary Region: ${AZURE_PRIMARY_LOCATION:-East US}"
-        echo "Secondary Region: ${AZURE_SECONDARY_LOCATION:-West US 2}"
-        echo "Environment Type: ${AZURE_ENV_TYPE:-dev}"
-    windows:
-      shell: pwsh
-      run: |
-        Write-Host "Preparing multi-region deployment..."
-        Write-Host "Primary Region: $($env:AZURE_PRIMARY_LOCATION ?? 'East US')"
-        Write-Host "Secondary Region: $($env:AZURE_SECONDARY_LOCATION ?? 'West US 2')"
-        Write-Host "Environment Type: $($env:AZURE_ENV_TYPE ?? 'dev')"
-        
   postdeploy:
     posix:
       shell: sh
       run: |
         echo "Multi-region deployment completed!"
-        echo "Front Door Endpoint: ${AZURE_FRONT_DOOR_ENDPOINT}"
-        echo "Primary App Service: ${AZURE_PRIMARY_APP_SERVICE}"
-        echo "Secondary App Service: ${AZURE_SECONDARY_APP_SERVICE}"
+        echo "Front Door Endpoint: $(azd env get-value FRONT_DOOR_ENDPOINT)"
+        echo "Primary App Service: $(azd env get-value AZURE_PRIMARY_APP_SERVICE)"
+        echo "Secondary App Service: $(azd env get-value AZURE_SECONDARY_APP_SERVICE)"
     windows:
       shell: pwsh
       run: |
         Write-Host "Multi-region deployment completed!"
-        Write-Host "Front Door Endpoint: $env:AZURE_FRONT_DOOR_ENDPOINT"
-        Write-Host "Primary App Service: $env:AZURE_PRIMARY_APP_SERVICE"
-        Write-Host "Secondary App Service: $env:AZURE_SECONDARY_APP_SERVICE"
+        Write-Host "Front Door Endpoint: $(azd env get-value FRONT_DOOR_ENDPOINT)"
+        Write-Host "Primary App Service: $(azd env get-value AZURE_PRIMARY_APP_SERVICE)"
+        Write-Host "Secondary App Service: $(azd env get-value AZURE_SECONDARY_APP_SERVICE)"

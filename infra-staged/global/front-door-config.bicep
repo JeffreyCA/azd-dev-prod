@@ -43,12 +43,13 @@ resource frontDoorOriginGroup 'Microsoft.Cdn/profiles/originGroups@2024-02-01' =
       probePath: '/health'
       probeRequestType: 'GET'
       probeProtocol: 'Https'
-      probeIntervalInSeconds: 100
+      probeIntervalInSeconds: 30
     }
+    sessionAffinityState: 'Disabled'
   }
 }
 
-// Primary region origin
+// Primary region origin - Equal weight routing
 resource primaryOrigin 'Microsoft.Cdn/profiles/originGroups/origins@2024-02-01' = {
   parent: frontDoorOriginGroup
   name: 'primary-app-service'
@@ -58,13 +59,13 @@ resource primaryOrigin 'Microsoft.Cdn/profiles/originGroups/origins@2024-02-01' 
     httpsPort: 443
     originHostHeader: primaryAppServiceHostname
     priority: 1
-    weight: 1000
+    weight: 500
     enabledState: 'Enabled'
     enforceCertificateNameCheck: true
   }
 }
 
-// Secondary region origin
+// Secondary region origin - Equal weight routing
 resource secondaryOrigin 'Microsoft.Cdn/profiles/originGroups/origins@2024-02-01' = {
   parent: frontDoorOriginGroup
   name: 'secondary-app-service'
@@ -73,8 +74,8 @@ resource secondaryOrigin 'Microsoft.Cdn/profiles/originGroups/origins@2024-02-01
     httpPort: 80
     httpsPort: 443
     originHostHeader: secondaryAppServiceHostname
-    priority: 2
-    weight: 1000
+    priority: 1
+    weight: 500
     enabledState: 'Enabled'
     enforceCertificateNameCheck: true
   }

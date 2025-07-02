@@ -137,13 +137,13 @@ module frontDoorConfig './global/front-door-config.bicep' = {
 
 // Outputs for the scale unit
 @description('Front Door endpoint hostname for global access')
-output frontDoorEndpoint string = frontDoorConfig.outputs.frontDoorEndpointHostname
+output FRONT_DOOR_ENDPOINT string = frontDoorConfig.outputs.frontDoorEndpointHostname
 
 @description('Primary region App Service hostname')
-output primaryAppServiceHostname string = primaryRegion.outputs.appServiceHostName
+output AZURE_PRIMARY_APP_SERVICE string = primaryRegion.outputs.appServiceHostName
 
 @description('Secondary region App Service hostname')
-output secondaryAppServiceHostname string = secondaryRegion.outputs.appServiceHostName
+output AZURE_SECONDARY_APP_SERVICE string = secondaryRegion.outputs.appServiceHostName
 
 @description('Global storage account name')
 output globalStorageAccountName string = globalInfrastructure.outputs.globalStorageAccountName

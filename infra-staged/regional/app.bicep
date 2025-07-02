@@ -108,6 +108,8 @@ module appService 'br/public:avm/res/web/site:0.15.1' = {
       AZURE_CLIENT_ID: appIdentityClientId
       AZURE_STORAGE_ACCOUNT_NAME: storageAccountName
       AZURE_STORAGE_BLOB_ENDPOINT: storageAccountBlobEndpoint
+      AZURE_REGION: location
+      AZURE_REGION_SUFFIX: regionSuffix
       PORT: '80'
       ENABLE_ORYX_BUILD: 'true'
       PYTHON_ENABLE_GUNICORN_MULTIWORKERS: 'true'

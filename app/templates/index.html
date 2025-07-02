@@ -43,9 +43,48 @@
             border: none;
             border-radius: 4px;
             cursor: pointer;
+            margin-right: 10px;
         }
         button:hover {
             background-color: #005a9e;
+        }
+        .health-control {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .health-control h3 {
+            margin-top: 0;
+            color: #856404;
+        }
+        .health-status {
+            font-weight: bold;
+            padding: 5px 10px;
+            border-radius: 3px;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+        .health-status.healthy {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .health-status.unhealthy {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .btn-danger {
+            background-color: #dc3545;
+        }
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+        .btn-success {
+            background-color: #28a745;
+        }
+        .btn-success:hover {
+            background-color: #218838;
         }
         .flash-messages {
             margin-bottom: 20px;
@@ -74,11 +113,51 @@
         .nav a:hover {
             text-decoration: underline;
         }
+        .region-info {
+            background-color: #e8f4fd;
+            border: 1px solid #0078d4;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .region-info h3 {
+            margin-top: 0;
+            color: #0078d4;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Azure Storage File Upload</h1>
+        
+        <!-- Region Information -->
+        {% if region_info %}
+        <div class="region-info">
+            <h3>🌐 Current Region Information</h3>
+            <p><strong>Region:</strong> {{ region_info.region }}</p>
+            <p><strong>Region Type:</strong> {{ region_info.region_suffix|title }}</p>
+            <p><strong>Hostname:</strong> {{ region_info.hostname }}</p>
+        </div>
+        {% endif %}
+        
+        <!-- Health Control Section -->
+        <div class="health-control">
+            <h3>🏥 Health Status Control</h3>
+            {% if health_status %}
+                <div class="health-status healthy">Status: HEALTHY</div>
+            {% else %}
+                <div class="health-status unhealthy">Status: UNHEALTHY</div>
+            {% endif %}
+            <p>Control the health endpoint for testing load balancer and Front Door behavior:</p>
+            <form action="{{ url_for('control_health') }}" method="post" style="display: inline;">
+                <input type="hidden" name="action" value="make_unhealthy">
+                <button type="submit" class="btn-danger">Make Unhealthy (15s)</button>
+            </form>
+            <form action="{{ url_for('control_health') }}" method="post" style="display: inline;">
+                <input type="hidden" name="action" value="make_healthy">
+                <button type="submit" class="btn-success">Make Healthy</button>
+            </form>
+        </div>
         
         <div class="nav">
             <a href="{{ url_for('index') }}">Upload</a>

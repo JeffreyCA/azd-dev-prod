@@ -1,5 +1,6 @@
 import os
-from datetime import datetime
+import json
+from datetime import datetime, timedelta
 from flask import Flask, render_template, request, redirect, url_for, flash
 from azure.identity import DefaultAzureCredential
 from azure.storage.blob import BlobServiceClient
@@ -10,15 +11,92 @@ app.secret_key = os.urandom(24)  # Secret key for flash messages
 # Get the Azure Storage account details from environment variables
 AZURE_STORAGE_BLOB_ENDPOINT = os.environ.get('AZURE_STORAGE_BLOB_ENDPOINT')
 CONTAINER_NAME = os.environ.get('AZURE_STORAGE_CONTAINER_NAME', 'files')
+STATUS_CONTAINER_NAME = 'status'  # Container for health status control
+STATUS_BLOB_NAME = 'health-status.json'  # Blob name for health status
 
 # Initialize the Azure Storage credentials and client
 credential = DefaultAzureCredential()
 blob_service_client = BlobServiceClient(account_url=AZURE_STORAGE_BLOB_ENDPOINT, credential=credential)
 
+def _get_status_blob():
+    """Get status blob content or None if not found/error."""
+    try:
+        if not AZURE_STORAGE_BLOB_ENDPOINT:
+            return None
+            
+        container_client = blob_service_client.get_container_client(STATUS_CONTAINER_NAME)
+        if not container_client.exists():
+            return None
+        
+        blob_client = container_client.get_blob_client(STATUS_BLOB_NAME)
+        content = blob_client.download_blob().readall().decode('utf-8')
+        return json.loads(content)
+    except:
+        return None
+
+def _is_unhealthy_expired(status_data):
+    """Check if unhealthy period has expired."""
+    if not status_data or status_data.get('status') != 'unhealthy':
+        return False
+    
+    expiry = status_data.get('unhealthy_until')
+    if not expiry:
+        return False
+        
+    return datetime.utcnow() > datetime.fromisoformat(expiry)
+
+def _set_status_blob(unhealthy_seconds=0):
+    """Set status blob with unhealthy duration (0 = healthy)."""
+    try:
+        if not AZURE_STORAGE_BLOB_ENDPOINT:
+            return False
+        
+        container_client = blob_service_client.get_container_client(STATUS_CONTAINER_NAME)
+        
+        # Create container if it doesn't exist
+        if not container_client.exists():
+            container_client.create_container()
+        
+        blob_client = container_client.get_blob_client(STATUS_BLOB_NAME)
+        
+        now = datetime.utcnow()
+        status_data = {'timestamp': now.isoformat()}
+        
+        if unhealthy_seconds > 0:
+            status_data.update({
+                'status': 'unhealthy',
+                'unhealthy_until': (now + timedelta(seconds=unhealthy_seconds)).isoformat()
+            })
+        else:
+            status_data['status'] = 'healthy'
+        
+        blob_client.upload_blob(json.dumps(status_data), overwrite=True)
+        return True
+        
+    except:
+        return False
+
 @app.route('/', methods=['GET'])
 def index():
     """Render the home page with the upload form."""
-    return render_template('index.html')
+    region_info = {
+        'region': os.environ.get('AZURE_REGION', 'unknown'),
+        'region_suffix': os.environ.get('AZURE_REGION_SUFFIX', 'unknown'),
+        'hostname': request.headers.get('Host', 'unknown')
+    }
+    
+    # Get current health status for display
+    status_data = _get_status_blob()
+    is_healthy = True  # Default to healthy
+    
+    if status_data:
+        if _is_unhealthy_expired(status_data):
+            _set_status_blob(0)  # Reset to healthy
+            is_healthy = True
+        else:
+            is_healthy = status_data.get('status') == 'healthy'
+    
+    return render_template('index.html', region_info=region_info, health_status=is_healthy)
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -81,34 +159,68 @@ def view_file(filename):
         flash(f'Error viewing file: {str(e)}', 'error')
         return redirect(url_for('files'))
 
+@app.route('/health/control', methods=['POST'])
+def control_health():
+    """Control health status endpoint."""
+    action = request.form.get('action')
+    
+    if action == 'make_unhealthy':
+        success = _set_status_blob(60)  # Unhealthy for 60 seconds
+        flash('Health set to unhealthy for 60 seconds' if success else 'Failed to update health', 
+              'success' if success else 'error')
+    elif action == 'make_healthy':
+        success = _set_status_blob(0)  # Healthy
+        flash('Health set to healthy' if success else 'Failed to update health', 
+              'success' if success else 'error')
+    else:
+        flash('Invalid action', 'error')
+    
+    return redirect(url_for('index'))
+
 @app.route('/health')
 def health_check():
-    """Health check endpoint for Front Door and load balancer probes."""
-    try:
-        # Test storage connectivity
-        container_client = blob_service_client.get_container_client(CONTAINER_NAME)
-        container_client.get_container_properties()
+    """Health check endpoint with optional control via query parameters."""
+    # Handle control actions via query parameters (for API usage)
+    action = request.args.get('action')
+    if action == 'unhealthy':
+        _set_status_blob(60)
+    elif action == 'healthy':
+        _set_status_blob(0)
+    
+    # Get current status
+    status_data = _get_status_blob()
+    is_healthy = True  # Default to healthy (fail-open)
+    
+    if status_data:
+        if _is_unhealthy_expired(status_data):
+            _set_status_blob(0)  # Auto-recover
+            is_healthy = True
+        else:
+            is_healthy = status_data.get('status') == 'healthy'
+    
+    # Test storage connectivity only if we think we're healthy
+    storage_healthy = is_healthy
+    if is_healthy:
+        try:
+            blob_service_client.get_container_client(STATUS_CONTAINER_NAME).get_container_properties()
+        except:
+            storage_healthy = False
+            is_healthy = False
+    
+    status_code = 200 if is_healthy else 503
+    response = {
+        'status': 'healthy' if is_healthy else 'unhealthy',
+        'timestamp': datetime.utcnow().isoformat(),
+        'services': {
+            'storage': 'healthy' if storage_healthy else 'unhealthy',
+            'application': 'healthy' if is_healthy else 'unhealthy'
+        }
+    }
+    
+    if status_data:
+        response['blob_data'] = status_data
         
-        # Return healthy response
-        return {
-            'status': 'healthy',
-            'timestamp': datetime.utcnow().isoformat(),
-            'services': {
-                'storage': 'healthy',
-                'application': 'healthy'
-            }
-        }, 200
-    except Exception as e:
-        # Return unhealthy response
-        return {
-            'status': 'unhealthy',
-            'timestamp': datetime.utcnow().isoformat(),
-            'error': str(e),
-            'services': {
-                'storage': 'unhealthy',
-                'application': 'healthy'
-            }
-        }, 503
+    return response, status_code
 
 @app.route('/info')
 def app_info():
@@ -120,10 +232,13 @@ def app_info():
         'application': 'Azure Multi-Region File App',
         'version': '1.0.0',
         'region': os.environ.get('AZURE_REGION', 'unknown'),
+        'region_suffix': os.environ.get('AZURE_REGION_SUFFIX', 'unknown'),
         'environment': os.environ.get('AZURE_ENV_NAME', 'unknown'),
         'hostname': platform.node(),
         'storage_endpoint': AZURE_STORAGE_BLOB_ENDPOINT,
-        'container_name': CONTAINER_NAME
+        'container_name': CONTAINER_NAME,
+        'front_door_id': request.headers.get('X-Azure-FDID', 'direct-access'),
+        'request_headers': dict(request.headers)
     }
 
 if __name__ == '__main__':

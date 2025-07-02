@@ -57,7 +57,7 @@ module applicationInsights 'br/public:avm/res/insights/component:0.4.1' = {
 }
 
 module applicationInsightsDashboard 'modules/applicationinsights-dashboard.bicep' = if (envType == 'prod') {
-  name: 'dashboard-deployment'
+  // name: 'dashboard-deployment'
   params: {
     name: applicationInsightsDashboardName
     location: location

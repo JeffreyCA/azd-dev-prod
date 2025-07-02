@@ -51,6 +51,10 @@ module storageAccount 'br/public:avm/res/storage/storage-account:0.17.2' = {
           name: 'files'
           publicAccess: 'None'
         }
+        {
+          name: 'status'
+          publicAccess: 'None'
+        }
       ]
     }
     location: location
