@@ -180,13 +180,6 @@ def control_health():
 @app.route('/health')
 def health_check():
     """Health check endpoint with optional control via query parameters."""
-    # Handle control actions via query parameters (for API usage)
-    action = request.args.get('action')
-    if action == 'unhealthy':
-        _set_status_blob(60)
-    elif action == 'healthy':
-        _set_status_blob(0)
-    
     # Get current status
     status_data = _get_status_blob()
     is_healthy = True  # Default to healthy (fail-open)
