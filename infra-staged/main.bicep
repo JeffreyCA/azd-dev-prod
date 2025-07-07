@@ -97,11 +97,11 @@ module primaryRegion './regional/main.bicep' = {
   scope: resourceGroup
   params: {
     location: primaryLocation
-    tags: union(tags, { 'region-role': 'primary' })
+    tags: tags
     envType: envType
     abbrs: abbrs
     resourceToken: resourceToken
-    regionSuffix: 'primary'
+    scaleUnit: 'primary'
     privateDnsZoneStorageId: globalInfrastructure.outputs.privateDnsZoneStorageId
     frontDoorId: globalInfrastructure.outputs.frontDoorId
   }
@@ -113,11 +113,11 @@ module secondaryRegion './regional/main.bicep' = {
   scope: resourceGroup
   params: {
     location: secondaryLocation
-    tags: union(tags, { 'region-role': 'secondary' })
+    tags: tags
     envType: envType
     abbrs: abbrs
     resourceToken: resourceToken
-    regionSuffix: 'secondary'
+    scaleUnit: 'secondary'
     privateDnsZoneStorageId: globalInfrastructure.outputs.privateDnsZoneStorageId
     frontDoorId: globalInfrastructure.outputs.frontDoorId
   }

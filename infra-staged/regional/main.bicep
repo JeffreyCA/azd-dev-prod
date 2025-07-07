@@ -25,8 +25,8 @@ param abbrs object
 @description('Unique token for resource naming')
 param resourceToken string
 
-@description('Region suffix for naming (primary/secondary)')
-param regionSuffix string
+@description('Scale unit for naming (primary/secondary)')
+param scaleUnit string
 
 @description('Private DNS Zone ID for storage account (from global infrastructure)')
 param privateDnsZoneStorageId string
@@ -34,23 +34,26 @@ param privateDnsZoneStorageId string
 @description('Front Door ID for access restrictions (from global infrastructure)')
 param frontDoorId string = ''
 
+// Create regional tags by adding the scale-unit tag to the base tags
+var regionalTags = union(tags, { 'scale-unit': scaleUnit })
+
 // Note: Resource groups are created at the subscription level
 // This regional deployment module assumes it's deployed within an existing resource group
 
 // Deploy network infrastructure (only for production)
 module regionalNetwork './network.bicep' = if (envType == 'prod') {
-  name: 'regional-network-${regionSuffix}'
+  name: 'regional-network-${scaleUnit}'
   params: {
     location: location
-    tags: tags
+    tags: regionalTags
     abbrs: abbrs
-    resourceToken: '${regionSuffix}${resourceToken}'
+    resourceToken: '${scaleUnit}${resourceToken}'
   }
 }
 
 // Create VNet link to global private DNS zone (only for production)
 resource privateDnsZoneStorageVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = if (envType == 'prod') {
-  name: '${split(privateDnsZoneStorageId, '/')[8]}/${regionSuffix}-storage-vnet-link'
+  name: '${split(privateDnsZoneStorageId, '/')[8]}/${scaleUnit}-storage-vnet-link'
   location: 'global'
   properties: {
     virtualNetwork: {
@@ -58,39 +61,39 @@ resource privateDnsZoneStorageVnetLink 'Microsoft.Network/privateDnsZones/virtua
     }
     registrationEnabled: false
   }
-  tags: tags
+  tags: regionalTags
 }
 
 // Regional monitoring
 module regionalMonitoring './monitoring.bicep' = {
-  name: 'regional-monitoring-${regionSuffix}'
+  name: 'regional-monitoring-${scaleUnit}'
   params: {
     location: location
-    tags: tags
+    tags: regionalTags
     abbrs: abbrs
-    resourceToken: '${regionSuffix}${resourceToken}'
+    resourceToken: '${scaleUnit}${resourceToken}'
     envType: envType
   }
 }
 
 // Regional managed identity
 module regionalAppIdentity 'br/public:avm/res/managed-identity/user-assigned-identity:0.2.1' = {
-  name: 'regional-app-identity-${regionSuffix}'
+  name: 'regional-app-identity-${scaleUnit}'
   params: {
-    name: '${abbrs.managedIdentityUserAssignedIdentities}app-${regionSuffix}-${resourceToken}'
+    name: '${abbrs.managedIdentityUserAssignedIdentities}app-${scaleUnit}-${resourceToken}'
     location: location
-    tags: tags
+    tags: regionalTags
   }
 }
 
 // Regional shared services (storage)
 module regionalShared './storage.bicep' = {
-  name: 'regional-shared-${regionSuffix}'
+  name: 'regional-shared-${scaleUnit}'
   params: {
     location: location
-    tags: union(tags, { 'region-role': regionSuffix })
+    tags: regionalTags
     abbrs: abbrs
-    resourceToken: '${regionSuffix}${resourceToken}'
+    resourceToken: '${scaleUnit}${resourceToken}'
     envType: envType
     privateEndpointSubnetId: envType == 'prod' ? regionalNetwork.outputs.privateEndpointSubnetId : ''
     privateDnsZoneStorageId: privateDnsZoneStorageId
@@ -100,12 +103,12 @@ module regionalShared './storage.bicep' = {
 
 // Regional application hosting
 module regionalApp './app.bicep' = {
-  name: 'regional-app-${regionSuffix}'
+  name: 'regional-app-${scaleUnit}'
   params: {
     location: location
-    tags: tags
+    tags: regionalTags
     abbrs: abbrs
-    resourceToken: '${regionSuffix}${resourceToken}'
+    resourceToken: '${scaleUnit}${resourceToken}'
     envType: envType
     vnetIntegrationSubnetId: envType == 'prod' ? regionalNetwork.outputs.vnetIntegrationSubnetId : ''
     applicationInsightsResourceId: regionalMonitoring.outputs.applicationInsightsResourceId
@@ -114,7 +117,7 @@ module regionalApp './app.bicep' = {
     storageAccountName: regionalShared.outputs.storageAccountName
     storageAccountBlobEndpoint: regionalShared.outputs.storageAccountBlobEndpoint
     frontDoorId: frontDoorId
-    regionSuffix: regionSuffix
+    scaleUnit: scaleUnit
   }
 }
 

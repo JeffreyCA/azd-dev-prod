@@ -48,8 +48,8 @@ param storageAccountBlobEndpoint string
 @description('Front Door ID for access restrictions (optional for non-prod environments)')
 param frontDoorId string = ''
 
-@description('Region suffix for naming (primary/secondary)')
-param regionSuffix string
+@description('Scale unit for naming (primary/secondary)')
+param scaleUnit string
 
 // App Service Plan for hosting the application
 module appServicePlan 'br/public:avm/res/web/serverfarm:0.4.1' = {
@@ -70,7 +70,7 @@ module appService 'br/public:avm/res/web/site:0.15.1' = {
   params: {
     name: '${abbrs.webSitesAppService}app-${resourceToken}'
     location: location
-    tags: union(tags, { 'azd-service-name': 'app-${regionSuffix}' })
+    tags: union(tags, { 'azd-service-name': 'app-${scaleUnit}' })
     kind: 'app,linux'
     serverFarmResourceId: appServicePlan.outputs.resourceId
     managedIdentities:{
@@ -109,7 +109,7 @@ module appService 'br/public:avm/res/web/site:0.15.1' = {
       AZURE_STORAGE_ACCOUNT_NAME: storageAccountName
       AZURE_STORAGE_BLOB_ENDPOINT: storageAccountBlobEndpoint
       AZURE_REGION: location
-      AZURE_REGION_SUFFIX: regionSuffix
+      AZURE_REGION_SUFFIX: scaleUnit
       PORT: '80'
       ENABLE_ORYX_BUILD: 'true'
       PYTHON_ENABLE_GUNICORN_MULTIWORKERS: 'true'

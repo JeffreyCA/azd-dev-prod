@@ -26,18 +26,20 @@ param abbrs object
 @description('Unique token for resource naming')
 param resourceToken string
 
+var globalTags = union(tags, { 'scale-unit': 'global' })
+
 // Global Private DNS Zone for storage accounts across all regions
 resource privateDnsZoneStorage 'Microsoft.Network/privateDnsZones@2024-06-01' = {
   name: 'privatelink.blob.${environment().suffixes.storage}'
   location: 'global'
-  tags: tags
+  tags: globalTags
 }
 
 // Global Front Door profile (endpoints and origins configured separately)
 resource frontDoorProfile 'Microsoft.Cdn/profiles@2024-02-01' = {
   name: '${abbrs.cdnProfiles}global-${resourceToken}'
   location: 'global'
-  tags: tags
+  tags: globalTags
   sku: {
     name: 'Standard_AzureFrontDoor'
   }
@@ -48,7 +50,7 @@ resource frontDoorProfile 'Microsoft.Cdn/profiles@2024-02-01' = {
 resource globalStorageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   name: '${abbrs.storageStorageAccounts}global${resourceToken}'
   location: primaryLocation
-  tags: union(tags, { 'storage-role': 'global' })
+  tags: globalTags
   sku: {
     name: 'Standard_GRS' // Geo-redundant storage for global data
   }
