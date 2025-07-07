@@ -13,12 +13,26 @@ permissions:
 jobs:
   build-and-package:
     runs-on: ubuntu-latest
+    env:
+      AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      AZURE_ENV_NAME: ${{ vars.AZURE_ENV_NAME }}-dev
+      AZURE_ENV_TYPE: dev
+      AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
     steps:
       - uses: actions/checkout@v4
       
       - name: Install azd
         uses: Azure/setup-azd@v2
         
+      - name: Log in with Azure
+        run: |
+          azd auth login \
+            --client-id "$AZURE_CLIENT_ID" \
+            --federated-credential-provider "github" \
+            --tenant-id "$AZURE_TENANT_ID"
+      
       - name: Package Application
         run: azd package app-primary --output-path ./dist/api.zip
         
