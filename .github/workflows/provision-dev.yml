@@ -17,8 +17,6 @@ jobs:
     runs-on: ubuntu-latest
     environment: 
       name: dev
-    outputs:
-      ready: ${{ steps.provision.outputs.ready }}
     env:
       AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
       AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
