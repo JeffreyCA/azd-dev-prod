@@ -8,16 +8,6 @@ name: multi-region-scale-unit
 metadata:
   template: multi-region-app-service@0.0.1-beta
 
-# Infrastructure configuration for multi-region deployment
-infra:
-  module: main
-  path: infra-staged
-  location: "${AZURE_LOCATION}"
-  parameters:
-    primaryLocation: "${AZURE_LOCATION}"
-    secondaryLocation: "${AZURE_SECONDARY_LOCATION}"
-    envType: "${AZURE_ENV_TYPE}"
-
 # Application services
 services:
   # Must match 'azd-service-name' tag in Bicep: app-{regionSuffix}
@@ -37,12 +27,9 @@ hooks:
       shell: sh
       run: |
         echo "Front Door Endpoint: https://$(azd env get-value FRONT_DOOR_ENDPOINT)"
-        echo "Primary App Service: $(azd env get-value AZURE_PRIMARY_APP_SERVICE)"
-        echo "Secondary App Service: $(azd env get-value AZURE_SECONDARY_APP_SERVICE)"
+      interactive: true
     windows:
       shell: pwsh
       run: |
         Write-Host "Front Door Endpoint: https://$(azd env get-value FRONT_DOOR_ENDPOINT)"
-        Write-Host "Primary App Service: $(azd env get-value AZURE_PRIMARY_APP_SERVICE)"
-        Write-Host "Secondary App Service: $(azd env get-value AZURE_SECONDARY_APP_SERVICE)"
-    interactive: true
+      interactive: true

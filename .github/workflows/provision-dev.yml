@@ -1,0 +1,50 @@
+name: Provision Dev infra
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'infra/**'
+      - 'azure.yaml'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  provision-dev:
+    runs-on: ubuntu-latest
+    environment: 
+      name: dev
+    outputs:
+      ready: ${{ steps.provision.outputs.ready }}
+    env:
+      AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      AZURE_ENV_NAME: ${{ vars.AZURE_ENV_NAME }}-dev
+      AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
+      AZURE_ENV_TYPE: 'dev'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install azd
+        uses: Azure/setup-azd@v2
+        
+      - name: Log in with Azure
+        run: |
+          azd auth login \
+            --client-id "$AZURE_CLIENT_ID" \
+            --federated-credential-provider "github" \
+            --tenant-id "$AZURE_TENANT_ID"
+
+      - name: Provision Infrastructure (Dev)
+        id: provision
+        run: |
+          azd provision --no-prompt
+
+      - name: Validate Infrastructure
+        run: |
+          # Validate that infrastructure is properly provisioned
+          azd show --output json | jq -r '.services'
