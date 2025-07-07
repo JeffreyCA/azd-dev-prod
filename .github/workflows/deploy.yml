@@ -99,11 +99,11 @@ jobs:
           path: ./dist
 
       - name: Deploy application to primary
-        id: deploy
+        id: deploy-primary
         run: |
           azd deploy --from-package ./dist/api.zip --no-prompt app-primary
 
       - name: Deploy application to secondary
-        id: deploy
+        id: deploy-secondary
         run: |
           azd deploy --from-package ./dist/api.zip --no-prompt app-secondary
