@@ -2,6 +2,7 @@
 name: Deploy
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
 
@@ -89,6 +90,10 @@ jobs:
         run: |
           azd deploy --from-package ./dist/api-copy.zip --no-prompt app-secondary
           
+      - name: Refresh environment
+        run: |
+          azd env refresh --no-prompt
+
       - name: Get Front Door URL
         id: frontdoor
         run: |
@@ -140,6 +145,10 @@ jobs:
         id: deploy-secondary
         run: |
           azd deploy --from-package ./dist/api-copy.zip --no-prompt app-secondary
+
+      - name: Refresh environment
+        run: |
+          azd env refresh --no-prompt
 
       - name: Get Front Door URL
         id: frontdoor
