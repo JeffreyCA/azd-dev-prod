@@ -48,7 +48,7 @@ jobs:
     needs: build-and-package
     environment: 
       name: dev
-      url: ${{ steps.deploy.outputs.app-url }}
+      url: ${{ steps.frontdoor.outputs.app-url }}
     env:
       AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
       AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
@@ -74,11 +74,24 @@ jobs:
         with:
           name: app-package-${{ github.sha }}
           path: ./dist
-
-      - name: Deploy application (all scale units)
-        id: deploy
+      
+      - name: Make duplicate of package (workaround)
         run: |
-          azd deploy --from-package ./dist/api.zip --no-prompt
+          cp ./dist/api.zip ./dist/api-copy.zip
+
+      - name: Deploy application (primary)
+        id: deploy-primary
+        run: |
+          azd deploy --from-package ./dist/api.zip --no-prompt app-primary
+
+      - name: Deploy application (secondary)
+        id: deploy-secondary
+        run: |
+          azd deploy --from-package ./dist/api-copy.zip --no-prompt app-secondary
+          
+      - name: Get Front Door URL
+        id: frontdoor
+        run: |
           FRONT_DOOR_ENDPOINT=$(azd env get-value FRONT_DOOR_ENDPOINT)
           echo "app-url=https://$FRONT_DOOR_ENDPOINT" >> $GITHUB_OUTPUT
 
@@ -87,7 +100,7 @@ jobs:
     needs: [build-and-package, deploy-dev]
     environment: 
       name: prod
-      url: ${{ steps.deploy.outputs.app-url }}
+      url: ${{ steps.frontdoor.outputs.app-url }}
     env:
       AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
       AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
@@ -114,6 +127,10 @@ jobs:
           name: app-package-${{ github.sha }}
           path: ./dist
 
+      - name: Make duplicate of package (workaround)
+        run: |
+          cp ./dist/api.zip ./dist/api-copy.zip
+
       - name: Deploy application to primary
         id: deploy-primary
         run: |
@@ -122,10 +139,10 @@ jobs:
       - name: Deploy application to secondary
         id: deploy-secondary
         run: |
-          azd deploy --from-package ./dist/api.zip --no-prompt app-secondary
+          azd deploy --from-package ./dist/api-copy.zip --no-prompt app-secondary
 
       - name: Get Front Door URL
-        id: deploy
+        id: frontdoor
         run: |
           FRONT_DOOR_ENDPOINT=$(azd env get-value FRONT_DOOR_ENDPOINT)
           echo "app-url=https://$FRONT_DOOR_ENDPOINT" >> $GITHUB_OUTPUT
