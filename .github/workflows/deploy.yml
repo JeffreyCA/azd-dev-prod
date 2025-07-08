@@ -34,7 +34,7 @@ jobs:
             --tenant-id "$AZURE_TENANT_ID"
 
       - name: Package Application
-        run: azd package app-primary --output-path ./dist/api.zip
+        run: azd package app-primary --output-path ./dist/api.zip --no-prompt
         
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
