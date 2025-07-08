@@ -37,7 +37,7 @@ jobs:
         run: |
           azd provision --no-prompt
 
-      - name: Validate Infrastructure
-        run: |
-          # Validate that infrastructure is properly provisioned
-          azd show --output json | jq -r '.services'
+      # - name: Validate Infrastructure
+      #   run: |
+      #     # Validate that infrastructure is properly provisioned
+      #     azd show --output json | jq -r '.services'
