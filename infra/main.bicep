@@ -137,7 +137,7 @@ module frontDoorConfig './global/front-door-config.bicep' = {
 
 // Outputs for the scale unit
 @description('Front Door endpoint hostname for global access')
-output FRONT_DOOR_ENDPOINT string = frontDoorConfig.outputs.frontDoorEndpointHostname
+output FRONT_DOOR_ENDPOINT string = 'https://${frontDoorConfig.outputs.frontDoorEndpointHostname}'
 
 @description('Primary region App Service hostname')
 output AZURE_PRIMARY_APP_SERVICE string = primaryRegion.outputs.appServiceHostName

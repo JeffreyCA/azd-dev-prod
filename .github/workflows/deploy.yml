@@ -98,7 +98,7 @@ jobs:
         id: frontdoor
         run: |
           FRONT_DOOR_ENDPOINT=$(azd env get-value FRONT_DOOR_ENDPOINT)
-          echo "app-url=https://$FRONT_DOOR_ENDPOINT" >> $GITHUB_OUTPUT
+          echo "app-url=$FRONT_DOOR_ENDPOINT" >> $GITHUB_OUTPUT
 
   deploy-prod:
     runs-on: ubuntu-latest
@@ -154,4 +154,4 @@ jobs:
         id: frontdoor
         run: |
           FRONT_DOOR_ENDPOINT=$(azd env get-value FRONT_DOOR_ENDPOINT)
-          echo "app-url=https://$FRONT_DOOR_ENDPOINT" >> $GITHUB_OUTPUT
+          echo "app-url=$FRONT_DOOR_ENDPOINT" >> $GITHUB_OUTPUT

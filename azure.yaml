@@ -26,10 +26,10 @@ hooks:
     posix:
       shell: sh
       run: |
-        echo "Front Door Endpoint: https://$(azd env get-value FRONT_DOOR_ENDPOINT)"
+        echo "Front Door Endpoint: $(azd env get-value FRONT_DOOR_ENDPOINT)"
       interactive: true
     windows:
       shell: pwsh
       run: |
-        Write-Host "Front Door Endpoint: https://$(azd env get-value FRONT_DOOR_ENDPOINT)"
+        Write-Host "Front Door Endpoint: $(azd env get-value FRONT_DOOR_ENDPOINT)"
       interactive: true
