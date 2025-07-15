@@ -15,10 +15,12 @@ services:
     project: .
     host: appservice
     language: python
+    resourceGroup: ${PRIMARY_RESOURCE_GROUP_NAME}
   app-secondary:
     project: .
     host: appservice
     language: python
+    resourceGroup: ${SECONDARY_RESOURCE_GROUP_NAME}
 
 # Hooks for deployment lifecycle
 hooks:

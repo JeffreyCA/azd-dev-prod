@@ -22,9 +22,6 @@ metadata description = 'Deploys a highly available multi-region application with
 @description('Name of the environment that can be used as part of naming resource convention')
 param environmentName string
 
-@description('Location')
-param location string
-
 @metadata({azd: { 
   type: 'location'
   default: 'eastus'
@@ -43,6 +40,10 @@ param secondaryLocation string
 @allowed(['dev', 'test', 'prod'])
 param envType string = 'dev'
 
+var primaryResourceGroupName string = 'rg-${environmentName}-primary'
+var secondaryResourceGroupName string = 'rg-${environmentName}-secondary'
+var globalResourceGroupName string = 'rg-${environmentName}-global'
+
 // Tags that should be applied to all resources.
 var tags = {
   'azd-env-name': environmentName
@@ -53,35 +54,28 @@ var tags = {
 var abbrs = loadJsonContent('./abbreviations.json')
 var resourceToken = uniqueString(subscription().id, environmentName, primaryLocation)
 
-// Create resource group for all resources
-resource resourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' = {
-  name: 'rg-${environmentName}'
-  location: location
-  tags: tags
+resource primaryResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' = {
+  name: primaryResourceGroupName
+  location: primaryLocation
+  tags: union(tags, { 'region-role': 'primary' })
 }
 
-// resource primaryResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' = {
-//   name: 'rg-${environmentName}-primary'
-//   location: primaryLocation
-//   tags: union(tags, { 'region-role': 'primary' })
-// }
+resource secondaryResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' = {
+  name: secondaryResourceGroupName
+  location: secondaryLocation
+  tags: union(tags, { 'region-role': 'secondary' })
+}
 
-// resource secondaryResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' = {
-//   name: 'rg-${environmentName}-secondary'
-//   location: secondaryLocation
-//   tags: union(tags, { 'region-role': 'secondary' })
-// }
-
-// resource globalResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' = {
-//   name: 'rg-${environmentName}-global'
-//   location: primaryLocation
-//   tags: union(tags, { 'region-role': 'global' })
-// }
+resource globalResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' = {
+  name: globalResourceGroupName
+  location: primaryLocation
+  tags: union(tags, { 'region-role': 'global' })
+}
 
 // Deploy global infrastructure (Front Door profile, global storage, DNS zones)
 module globalInfrastructure './global/main.bicep' = {
   name: 'globalInfrastructureDeployment'
-  scope: resourceGroup
+  scope: globalResourceGroup
   params: {
     primaryLocation: primaryLocation
     tags: tags
@@ -94,7 +88,7 @@ module globalInfrastructure './global/main.bicep' = {
 // Deploy primary region infrastructure
 module primaryRegion './regional/main.bicep' = {
   name: 'primaryRegionDeployment'
-  scope: resourceGroup
+  scope: primaryResourceGroup
   params: {
     location: primaryLocation
     tags: tags
@@ -110,7 +104,7 @@ module primaryRegion './regional/main.bicep' = {
 // Deploy secondary region infrastructure
 module secondaryRegion './regional/main.bicep' = {
   name: 'secondaryRegionDeployment'
-  scope: resourceGroup
+  scope: secondaryResourceGroup
   params: {
     location: secondaryLocation
     tags: tags
@@ -123,10 +117,33 @@ module secondaryRegion './regional/main.bicep' = {
   }
 }
 
+// Create VNet links for private DNS zone (only for production)
+module primaryVnetLink './regional/modules/vnet-link.bicep' = if (envType == 'prod') {
+  name: 'primaryVnetLinkDeployment'
+  scope: globalResourceGroup
+  params: {
+    privateDnsZoneName: 'privatelink.blob.${environment().suffixes.storage}'
+    virtualNetworkId: primaryRegion.outputs.virtualNetworkId
+    scaleUnit: 'primary'
+    tags: tags
+  }
+}
+
+module secondaryVnetLink './regional/modules/vnet-link.bicep' = if (envType == 'prod') {
+  name: 'secondaryVnetLinkDeployment'
+  scope: globalResourceGroup
+  params: {
+    privateDnsZoneName: 'privatelink.blob.${environment().suffixes.storage}'
+    virtualNetworkId: secondaryRegion.outputs.virtualNetworkId
+    scaleUnit: 'secondary'
+    tags: tags
+  }
+}
+
 // Configure Front Door endpoints and origins after App Services are created
 module frontDoorConfig './global/front-door-config.bicep' = {
   name: 'frontDoorConfigDeployment'
-  scope: resourceGroup
+  scope: globalResourceGroup
   params: {
     frontDoorProfileId: globalInfrastructure.outputs.frontDoorProfileId
     resourceToken: resourceToken
@@ -146,16 +163,16 @@ output AZURE_PRIMARY_APP_SERVICE string = primaryRegion.outputs.appServiceHostNa
 output AZURE_SECONDARY_APP_SERVICE string = secondaryRegion.outputs.appServiceHostName
 
 @description('Global storage account name')
-output globalStorageAccountName string = globalInfrastructure.outputs.globalStorageAccountName
+output GLOBAL_STORAGE_ACCOUNT_NAME string = globalInfrastructure.outputs.globalStorageAccountName
 
-@description('Resource group name')
-output resourceGroupName string = resourceGroup.name
+@description('Primary resource group name')
+output PRIMARY_RESOURCE_GROUP_NAME string = primaryResourceGroup.name
 
-// @description('Secondary region resource group name')
-// output secondaryResourceGroupName string = secondaryResourceGroup.name
+@description('Secondary region resource group name')
+output SECONDARY_RESOURCE_GROUP_NAME string = secondaryResourceGroup.name
 
-// @description('Global resource group name')
-// output globalResourceGroupName string = globalResourceGroup.name
+@description('Global resource group name')
+output GLOBAL_RESOURCE_GROUP_NAME string = globalResourceGroup.name
 
 @description('Environment type used for this deployment')
-output environmentType string = envType
+output ENVIRONMENT_TYPE string = envType

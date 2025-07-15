@@ -52,7 +52,7 @@ resource globalStorageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   location: primaryLocation
   tags: globalTags
   sku: {
-    name: 'Standard_GRS' // Geo-redundant storage for global data
+    name: 'Standard_ZRS'
   }
   kind: 'StorageV2'
   properties: {

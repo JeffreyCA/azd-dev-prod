@@ -51,18 +51,10 @@ module regionalNetwork './network.bicep' = if (envType == 'prod') {
   }
 }
 
-// Create VNet link to global private DNS zone (only for production)
-resource privateDnsZoneStorageVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = if (envType == 'prod') {
-  name: '${split(privateDnsZoneStorageId, '/')[8]}/${scaleUnit}-storage-vnet-link'
-  location: 'global'
-  properties: {
-    virtualNetwork: {
-      id: regionalNetwork.outputs.virtualNetworkId
-    }
-    registrationEnabled: false
-  }
-  tags: regionalTags
-}
+// Get VNet outputs when in production mode
+var vnetIntegrationSubnetId = envType == 'prod' ? regionalNetwork!.outputs.vnetIntegrationSubnetId : ''
+var privateEndpointSubnetId = envType == 'prod' ? regionalNetwork!.outputs.privateEndpointSubnetId : ''
+var virtualNetworkId = envType == 'prod' ? regionalNetwork!.outputs.virtualNetworkId : ''
 
 // Regional monitoring
 module regionalMonitoring './monitoring.bicep' = {
@@ -95,10 +87,11 @@ module regionalShared './storage.bicep' = {
     abbrs: abbrs
     resourceToken: '${scaleUnit}${resourceToken}'
     envType: envType
-    privateEndpointSubnetId: envType == 'prod' ? regionalNetwork.outputs.privateEndpointSubnetId : ''
+    privateEndpointSubnetId: privateEndpointSubnetId
     privateDnsZoneStorageId: privateDnsZoneStorageId
     appIdentityPrincipalId: regionalAppIdentity.outputs.principalId
   }
+  dependsOn: envType == 'prod' ? [regionalNetwork] : []
 }
 
 // Regional application hosting
@@ -110,7 +103,7 @@ module regionalApp './app.bicep' = {
     abbrs: abbrs
     resourceToken: '${scaleUnit}${resourceToken}'
     envType: envType
-    vnetIntegrationSubnetId: envType == 'prod' ? regionalNetwork.outputs.vnetIntegrationSubnetId : ''
+    vnetIntegrationSubnetId: vnetIntegrationSubnetId
     applicationInsightsResourceId: regionalMonitoring.outputs.applicationInsightsResourceId
     appIdentityResourceId: regionalAppIdentity.outputs.resourceId
     appIdentityClientId: regionalAppIdentity.outputs.clientId
@@ -119,6 +112,7 @@ module regionalApp './app.bicep' = {
     frontDoorId: frontDoorId
     scaleUnit: scaleUnit
   }
+  dependsOn: envType == 'prod' ? [regionalNetwork] : []
 }
 
 
@@ -131,3 +125,4 @@ output appServicePlanResourceId string = regionalApp.outputs.appServicePlanResou
 output storageAccountName string = regionalShared.outputs.storageAccountName
 output logAnalyticsWorkspaceResourceId string = regionalMonitoring.outputs.logAnalyticsWorkspaceResourceId
 output applicationInsightsResourceId string = regionalMonitoring.outputs.applicationInsightsResourceId
+output virtualNetworkId string = envType == 'prod' ? virtualNetworkId : ''

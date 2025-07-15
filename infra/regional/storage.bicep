@@ -43,6 +43,7 @@ var storageAccountName = '${abbrs.storageStorageAccounts}${resourceToken}'
 module storageAccount 'br/public:avm/res/storage/storage-account:0.17.2' = {
   params: {
     name: storageAccountName
+    skuName: 'Standard_ZRS'
     allowSharedKeyAccess: false
     publicNetworkAccess: envType == 'prod' ? 'Disabled' : 'Enabled'
     blobServices: {

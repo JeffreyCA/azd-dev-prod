@@ -2,6 +2,9 @@
 
 This project implements a highly available, multi-region Flask application with automatic failover and global load balancing using Azure services. The infrastructure is organized into **global** and **regional** modules for better maintainability and deployment efficiency.
 
+> [!NOTE]
+> Recommended regions: **Poland Central** and **Canada Central** due to capacity constraints.
+
 ## 🏗️ Architecture Overview
 
 ### Infrastructure Organization
