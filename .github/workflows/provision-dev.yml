@@ -2,11 +2,6 @@ name: Provision Dev infra
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'infra/**'
-      - 'azure.yaml'
 
 permissions:
   id-token: write

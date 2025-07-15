@@ -5,6 +5,57 @@ This project implements a highly available, multi-region Flask application with 
 > [!NOTE]
 > Recommended regions: **Poland Central** and **Canada Central** due to capacity constraints.
 
+## 🚀 Quick Start
+
+### Prerequisites
+- [Azure Developer CLI (azd)](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd)
+- [Azure CLI](https://docs.microsoft.com/cli/azure/install-azure-cli) (optional)
+- Azure subscription with appropriate permissions
+
+### Quick Deployment
+
+```bash
+# Clone and navigate to the project
+cd azd-dev-prod
+
+# Deploy using azd (AZURE_ENV_TYPE=dev by default)
+azd up
+
+# Or deploy specific environment
+azd env set AZURE_ENV_TYPE prod
+azd up
+```
+
+### GitHub Actions Setup
+
+```bash
+# Clone and navigate to the project
+cd azd-dev-prod
+
+# Configure CI/CD pipeline
+azd pipeline config
+```
+
+Follow the interactive prompts:
+1. **Environment name**: Enter a unique environment name
+2. **Provider**: Select `GitHub`
+3. **Azure Subscription**: Choose your target subscription
+4. **Primary Location**: Select primary region (recommended: `Canada Central`)
+5. **Secondary Location**: Select secondary region (recommended: `Poland Central`)
+6. **Authentication**: Select `Federated User Managed Identity (MSI + OIDC)`
+7. **User Managed Identity**: Choose to use existing or create new MSI
+
+#### Post-Configuration Steps
+
+After running `azd pipeline config`, you'll need to add environment-specific federated credentials to the User Assigned Managed Identity in Azure:
+
+1. Navigate to your User Assigned Managed Identity resource in the Azure portal
+2. Follow the [Microsoft documentation](https://learn.microsoft.com/entra/workload-id/workload-identity-federation-create-trust-user-assigned-managed-identity?pivots=identity-wif-mi-methods-azp#github-actions-deploying-azure-resources) to create federated credentials. **Do this twice for the `dev` and `prod` environments**:
+    - **Federated credential scenario**: Configure a GitHub issued token to impersonate this application and deploy to Azure
+    - **Entity**: Environment
+    - **Environment**: `dev` / `prod`
+3. **Commit and Push**: After setting up federated credentials, manually trigger the [Deploy workflow](.github/workflows/deploy.yml) or commit your changes to trigger the pipeline
+
 ## 🏗️ Architecture Overview
 
 ### Infrastructure Organization
@@ -89,27 +140,6 @@ infra-staged/
     │  │  MI Auth)   │  │                │  │  MI Auth)   │  │
     │  └─────────────┘  │                │  └─────────────┘  │
     └───────────────────┘                └───────────────────┘
-```
-
-## 🚀 Quick Start
-
-### Prerequisites
-- [Azure Developer CLI (azd)](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd)
-- [Azure CLI](https://docs.microsoft.com/cli/azure/install-azure-cli)
-- Azure subscription with appropriate permissions
-
-### Quick Deployment
-
-```bash
-# Clone and navigate to the project
-cd azd-dev-prod-appservice-storage
-
-# Deploy using azd (AZURE_ENV_TYPE=dev by default)
-azd up
-
-# Or deploy specific environment
-azd env set AZURE_ENV_TYPE prod
-azd up
 ```
 
 ## 🔧 Configuration Options

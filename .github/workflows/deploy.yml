@@ -80,6 +80,11 @@ jobs:
         run: |
           cp ./dist/api.zip ./dist/api-copy.zip
 
+      - name: Provision infrastructure
+        id: provision
+        run: |
+          azd provision --no-prompt
+
       - name: Deploy application (primary)
         id: deploy-primary
         run: |
@@ -135,6 +140,11 @@ jobs:
       - name: Make duplicate of package (workaround)
         run: |
           cp ./dist/api.zip ./dist/api-copy.zip
+
+      - name: Provision infrastructure
+        id: provision
+        run: |
+          azd provision --no-prompt
 
       - name: Deploy application to primary
         id: deploy-primary
