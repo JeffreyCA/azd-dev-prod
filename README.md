@@ -3,7 +3,7 @@
 This project implements a highly available, multi-region Flask application with automatic failover and global load balancing using Azure services. The infrastructure is organized into **global** and **regional** modules for better maintainability and deployment efficiency.
 
 > [!NOTE]
-> Recommended regions: **Poland Central** and **Canada Central** due to capacity constraints.
+> Recommended regions: **Poland Central** and **Canada Central** (due to ongoing capacity constraints in other regions)
 
 ## 🚀 Quick Start
 
@@ -54,18 +54,24 @@ After running `azd pipeline config`, you'll need to add environment-specific fed
     - **Federated credential scenario**: Configure a GitHub issued token to impersonate this application and deploy to Azure
     - **Entity**: Environment
     - **Environment**: `dev` / `prod`
+    ![Federated Credentials](img/federated-creds-1.png)
+
+3. Verify you have 4 federated credentials in total:
+    ![Federated Credentials](img/federated-creds-2.png)
+
 3. **Commit and Push**: After setting up federated credentials, manually trigger the [Deploy workflow](.github/workflows/deploy.yml) or commit your changes to trigger the pipeline
 
 ## 🏗️ Architecture Overview
 
 ### Infrastructure Organization
 
-The Bicep infrastructure has been reorganized into a modular architecture:
+Modular Bicep infrastructure:
 
 ```
-infra-staged/
+infra/
 ├── main.bicep                    # Main orchestration (subscription scope)
 ├── main.parameters.json          # Environment parameters
+├── abbreviations.json            # Azure resource naming abbreviations
 ├── global/                       # Global infrastructure components
 │   ├── main.bicep               # Global resources (Front Door, DNS, shared storage)
 │   └── front-door-config.bicep  # Front Door endpoint configuration
@@ -76,16 +82,24 @@ infra-staged/
     ├── network.bicep            # VNet and networking
     ├── monitoring.bicep         # Regional monitoring
     └── modules/                 # Additional modules
+        ├── applicationinsights-dashboard.bicep  # Application Insights dashboard
+        └── vnet-link.bicep      # VNet links for private DNS zones
 ```
 
 ### Deployment Model
 
-- **Single Resource Group**: All resources are deployed to one resource group for simplified management
-- **Global Components**: Front Door, DNS zones, and shared storage deployed once
-- **Regional Components**: App Services, regional storage, and monitoring deployed per region
+- **Multi-Resource Group**: Resources are deployed to separate resource groups (primary, secondary, global)
+- **Global Components**: Front Door, DNS zones, and shared storage deployed once to global resource group
+- **Regional Components**: App Services, regional storage, and monitoring deployed per region to regional resource groups
+- **VNet Integration**: Private DNS zone links created for production environments
 - **Service Configuration**: Two azd services (`app-primary` and `app-secondary`) for automatic deployment
 
 ### Production Environment (`envType = 'prod'`)
+
+- VNet integration with private endpoints
+- Private storage access only
+- Private DNS zones with VNet links
+
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                           Azure Front Door                          │
@@ -120,6 +134,11 @@ infra-staged/
 ```
 
 ### Development Environment (`envType = 'dev'`)
+
+- Public storage access with managed identity auth
+- No VNet or private endpoints
+- Simplified networking for faster deployment
+
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                           Azure Front Door                          │
@@ -164,71 +183,32 @@ infra-staged/
 
 ### Built-in Health Endpoints
 
-The Flask application includes health endpoints for Front Door integration:
-
 - **`/health`** - Health check endpoint for Front Door health probes
 - **`/info`** - Application information and diagnostics
 
-### Health Status Control System
+### Testing Failover
 
 The application includes a **Health Status Control** section on the main page for testing load balancer and Front Door failover:
 
-**Features:**
-- **🟢 Make Healthy** button - Sets status to healthy immediately
-- **🔴 Make Unhealthy (120s)** button - Temporarily sets status to unhealthy for 120 seconds
-- **Auto-Recovery** - Status automatically returns to healthy after 120 seconds
-- **Real-time Status Display** - Shows current health status on the page
-
-**How to Test Failover:**
-1. Visit your application's main page
+1. Open Front Door endpoint
 2. Click **"Make Unhealthy (120s)"** button
-3. Test your Front Door endpoint - traffic should route to the secondary region
-4. Wait 120 seconds for auto-recovery, or click **"Make Healthy"** to restore immediately
+3. Refresh page - traffic should route to the other region
 
-This allows you to easily test multi-region failover behavior without stopping services.
+> [!NOTE]
+> Alternatively, you can use `az webapp stop --name <app-service-name> --resource-group <resource-group>` to stop one of the apps.
 
-## 🛡️ Security Features
-
-### Production Security (`envType = 'prod'`)
-
-- **Network Isolation**: VNet integration with private endpoints
-- **Storage Security**: Private-only access to storage accounts
-- **Identity Management**: Managed identities for all authentication
-- **Transport Security**: HTTPS-only with TLS 1.2 minimum
-- **Access Controls**: Network ACLs and IP restrictions
-
-### Development Security (`envType = 'dev'`)
-
-- **Managed Identity**: Passwordless authentication
-- **HTTPS Enforcement**: Secure transport
-- **Storage Access**: Public with managed identity auth
-- **Basic Network Controls**: Azure service bypass
-
-## 🧪 Alternative for testing failover
-
-**Stop App Service:**
-```bash
-# Stop primary region
-az webapp stop --name <primary-app-name> --resource-group <resource-group>
-
-# Restart primary region  
-az webapp start --name <primary-app-name> --resource-group <resource-group>
-```
-
-## 🛠️ Infrastructure Details
+## ️ Infrastructure Details
 
 ### Bicep Module Organization
 
-The infrastructure is modular and organized for maintainability:
-
 **Main Orchestration (`main.bicep`):**
-- Subscription-scoped deployment
-- Single resource group creation
-- Orchestrates global and regional deployments
+- Subscription-scoped deployment creating separate resource groups
+- Orchestrates global and regional deployments in parallel
+- Manages VNet links for private DNS zones in production
 - Parameter management and output aggregation
 
 **Global Infrastructure (`global/`):**
-- **`main.bicep`**: Front Door profile, DNS zones, global storage
+- **`main.bicep`**: Front Door profile, private DNS zones, global storage
 - **`front-door-config.bicep`**: Endpoint and origin configuration (post-deployment)
 
 **Regional Infrastructure (`regional/`):**
@@ -237,22 +217,22 @@ The infrastructure is modular and organized for maintainability:
 - **`storage.bicep`**: Regional storage accounts and containers
 - **`network.bicep`**: VNet, subnets, and private endpoints (prod only)
 - **`monitoring.bicep`**: Application Insights, Log Analytics, and dashboards
+- **`modules/applicationinsights-dashboard.bicep`**: Monitoring dashboard
+- **`modules/vnet-link.bicep`**: VNet links to private DNS zones (prod only)
 
 ### Deployment Flow
 
-1. **Global Resources**: DNS zones, Front Door profile, shared storage
-2. **Regional Resources**: App Services, regional storage, monitoring (parallel deployment)
-3. **Front Door Configuration**: Endpoints and origins (after App Services are ready)
-4. **Application Deployment**: Code deployment to both regions via azd services
-
-### Service Tags and Naming
-
-The infrastructure uses consistent tagging for azd integration:
-- App Services tagged with `azd-service-name`: `app-primary` and `app-secondary`
-- Resource naming follows Azure abbreviation standards
-- Unique resource tokens ensure global name uniqueness
+1. **Resource Groups**: Primary, secondary, and global resource groups created
+2. **Global Resources**: DNS zones, Front Door profile, shared storage
+3. **Regional Resources**: App Services, regional storage, monitoring (parallel deployment)
+4. **VNet Links**: Private DNS zone links for production environments
+5. **Front Door Configuration**: Endpoints and origins (after App Services are ready)
+6. **Application Deployment**: Code deployment to both regions via azd services
 
 ## 🔮 Advanced Scenarios
+
+<details>
+<summary>🔮 Advanced Scenarios</summary>
 
 ### Extending the Architecture
 
@@ -285,20 +265,7 @@ The infrastructure uses consistent tagging for azd integration:
 - Add Application Gateway for advanced load balancing
 - Implement Redis cache for session state
 
-### Multi-Environment Strategy
-
-**Development Workflow:**
-```bash
-# Development environment
-azd env new dev-feature-x
-azd env set AZURE_ENV_TYPE dev
-azd up
-
-# Production deployment
-azd env new production
-azd env set AZURE_ENV_TYPE prod
-azd up
-```
+</details>
 
 ## 📚 Additional Resources
 
