@@ -21,6 +21,7 @@ jobs:
       AZURE_ENV_NAME: ${{ vars.AZURE_ENV_NAME }}-dev
       AZURE_ENV_TYPE: dev
       AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
+      AZURE_SECONDARY_LOCATION: ${{ vars.AZURE_SECONDARY_LOCATION }}
     steps:
       - uses: actions/checkout@v4
       
@@ -57,6 +58,7 @@ jobs:
       AZURE_ENV_NAME: ${{ vars.AZURE_ENV_NAME }}-dev
       AZURE_ENV_TYPE: dev
       AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
+      AZURE_SECONDARY_LOCATION: ${{ vars.AZURE_SECONDARY_LOCATION }}
     steps:
       - uses: actions/checkout@v4
       
@@ -118,6 +120,7 @@ jobs:
       AZURE_ENV_NAME: ${{ vars.AZURE_ENV_NAME }}-prod
       AZURE_ENV_TYPE: prod
       AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
+      AZURE_SECONDARY_LOCATION: ${{ vars.AZURE_SECONDARY_LOCATION }}
     steps:
       - uses: actions/checkout@v4
       

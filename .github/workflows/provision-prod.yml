@@ -16,8 +16,9 @@ jobs:
       AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
       AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
       AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-      AZURE_ENV_NAME: ${{ vars.AZURE_ENV_NAME }}-prod
       AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
+      AZURE_SECONDARY_LOCATION: ${{ vars.AZURE_SECONDARY_LOCATION }}
+      AZURE_ENV_NAME: ${{ vars.AZURE_ENV_NAME }}-prod
       AZURE_ENV_TYPE: 'prod'
     steps:
       - uses: actions/checkout@v4
