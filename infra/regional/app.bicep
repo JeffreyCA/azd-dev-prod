@@ -114,6 +114,7 @@ module appService 'br/public:avm/res/web/site:0.15.1' = {
       ENABLE_ORYX_BUILD: 'true'
       PYTHON_ENABLE_GUNICORN_MULTIWORKERS: 'true'
       SCM_DO_BUILD_DURING_DEPLOYMENT: 'true'
+      NEW_VAR: 'true'
     }
     virtualNetworkSubnetId: envType == 'prod' && !empty(vnetIntegrationSubnetId) ? vnetIntegrationSubnetId : null
     appInsightResourceId: applicationInsightsResourceId
