@@ -59,7 +59,7 @@ module appServicePlan 'br/public:avm/res/web/serverfarm:0.4.1' = {
     location: location
     tags: tags
     kind: 'linux'
-    skuCapacity: 1
+    skuCapacity: 2
     skuName: 'P0V3'
   }
 }
